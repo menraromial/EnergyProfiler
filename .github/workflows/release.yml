@@ -13,22 +13,37 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Python and PyInstaller
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
         run: |
-          sudo apt update
-          sudo apt install -y python3 python3-pip
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install pyinstaller
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
 
       - name: Build the executable
         run: |
-          pyinstaller --onefile --name energy_profiler energy_profiler.py
+          pyinstaller --onefile \
+            --name energy_profiler \
+            --add-data "requirements.txt:." \
+            energy_profiler.py
           mv dist/energy_profiler .  # Move binary to root directory
 
-      - name: Verify generated files
+      - name: Run tests
         run: |
-          ls -lh
-          [ -f energy_profiler ] && echo "Executable exists" || echo "ERROR: Executable missing!"
+          # Verify the executable exists and is executable
+          if [ ! -x energy_profiler ]; then
+            echo "ERROR: Executable not found or not executable!"
+            exit 1
+          fi
+          
+          # Test if the executable runs
+          ./energy_profiler --help || exit 1
 
       - name: Create a GitHub Release
         uses: softprops/action-gh-release@v2
@@ -40,4 +55,4 @@ jobs:
           files: |
             energy_profiler
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}  # Use the new PAT token
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
